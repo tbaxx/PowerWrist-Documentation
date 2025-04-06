@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: PowerWrist - OpenAPI 3.0
+  contact:
+    email: theo@autoscale.click
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.0
+paths:
+  /:
+    get:
+      tags:
+        - Prompt
+      summary: Get the initial prompt
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prompt'          
+    post:
+      tags:
+        - Prompt
+      summary: Post the current state and receive the next prompt
+      requestBody:
+        description: The current state represented as a list of the ids of the user choices of each previous prompt
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/State'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prompt'          
+        '400':
+          description: Bad Request
+components:
+  schemas:
+    State:
+      type: array
+      items:
+        type: string
+      description: >
+        An array representing the sequence of user choices: prompt ids for prompts of type choice, entered text for prompts oftype text.
+    Prompt:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          text:
+            type: string
+          icon:
+            type: string
+          encrypted:
+            type: boolean
+            default: false
+          nextPrompt:
+            type: string
+            enum:
+            - choice
+            - text
+            description: Specifies the type of prompt to display next.
+          nextPromptProperties:
+            type: array
+            items:
+              type: string
+              enum:
+              - encryptText
+              - requireNonEmptyText
+              description: Flags influencing the behavior of the next prompt.
+          nextPromptTitle:
+            type: string
+          nextPromptMessage:
+            type: string
+        required:
+          - id
+          - text
