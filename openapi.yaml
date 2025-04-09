@@ -5,7 +5,7 @@ info:
     email: theo@autoscale.click
   license:
     name: Apache 2.0
-    url: http://www.apache.org/licenses/LICENSE-2.0.html
+    url: [http://www.apache.org/licenses/LICENSE-2.0.html](http://www.apache.org/licenses/LICENSE-2.0.html)
   version: 1.0.0
 paths:
   /:
@@ -19,13 +19,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Prompt'          
+                $ref: '#/components/schemas/Prompt'
     post:
       tags:
         - Prompt
       summary: Post the current state and receive the next prompt
       requestBody:
-        description: The current state represented as a list of the ids of the user choices of each previous prompt
+        description: The current state represented as a list of strings. Each string is the ID of a selected choice, user-entered text, a user-selected integer (as a string), or user's location (as "latitude,longitude" string).
         content:
           application/json:
             schema:
@@ -37,9 +37,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Prompt'          
+                $ref: '#/components/schemas/Prompt'
         '400':
-          description: Bad Request
+          description: Bad Request (e.g., invalid state format)
 components:
   schemas:
     State:
@@ -47,7 +47,11 @@ components:
       items:
         type: string
       description: >
-        An array representing the sequence of user choices: prompt ids for prompts of type choice, entered text for prompts oftype text.
+        An array of strings representing the sequence of user interactions:
+        - Prompt IDs for `choice` selections.
+        - Entered text for `text` prompts (potentially encrypted).
+        - Entered integer as a string for `integer` prompts.
+        - Entered location as "latitude,longitude" string for `location` prompts.
     Prompt:
       type: array
       items:
@@ -55,19 +59,25 @@ components:
         properties:
           id:
             type: string
+            description: Unique identifier for this prompt item/choice.
           text:
             type: string
+            description: Display text for the item (can be encrypted).
           icon:
             type: string
+            description: Optional SF Symbol name for an icon.
           encrypted:
             type: boolean
             default: false
+            description: If true, `text`, `nextPromptTitle`, and `nextPromptMessage` are expected to be encrypted (Base64(IV):Base64(Ciphertext)).
           nextPrompt:
             type: string
             enum:
             - choice
             - text
-            description: Specifies the type of prompt to display next.
+            - integer
+            - location
+            description: Specifies the type of prompt to display next after selecting this item. Omit for a final result display.
           nextPromptProperties:
             type: array
             items:
@@ -75,11 +85,13 @@ components:
               enum:
               - encryptText
               - requireNonEmptyText
-              description: Flags influencing the behavior of the next prompt.
+            description: Flags influencing the behavior of the *next* prompt (currently only applicable if nextPrompt is 'text').
           nextPromptTitle:
             type: string
+            description: Optional title for the next screen (can be encrypted). Defaults to the current item's text if omitted.
           nextPromptMessage:
             type: string
+            description: Optional informational message displayed on the next screen (can be encrypted).
         required:
           - id
           - text
