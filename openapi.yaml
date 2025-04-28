@@ -6,7 +6,7 @@ info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: 1.0.0
+  version: 1.0.1
 paths:
   /:
     get:
@@ -25,7 +25,7 @@ paths:
         - Prompt
       summary: Post the current state and receive the next prompt
       requestBody:
-        description: The current state represented as a list of strings. Each string is the ID of a selected choice, user-entered text, a user-selected integer (as a string), or user's location (as "latitude,longitude" string).
+        description: The current state represented as a list of strings. Each string is the ID of a selected choice, user-entered text, a user-selected integer (as a string), user's location (as "latitude,longitude" string), an empty string for confirmations, or a string containing '&'-separated sorted IDs for multiple choice selections.
         content:
           application/json:
             schema:
@@ -52,6 +52,8 @@ components:
         - Entered text for `text` prompts (potentially encrypted).
         - Entered integer as a string for `integer` prompts.
         - Entered location as "latitude,longitude" string for `location` prompts.
+        - An empty string (`""`) for `confirm` prompts.
+        - A string of '&'-separated, sorted prompt IDs for `multiChoice` selections (e.g., "item1&item3&item4").
     Prompt:
       type: array
       items:
@@ -77,6 +79,8 @@ components:
             - text
             - integer
             - location
+            - confirm
+            - multiChoice
             description: Specifies the type of prompt to display next after selecting this item. Omit for a final result display.
           nextPromptProperties:
             type: array

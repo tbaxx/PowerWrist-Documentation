@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides detailed instructions for developers who want to create a custom backend API compatible with the PowerWrist watchOS application. PowerWrist allows users to interact with your backend through a series of prompts (choices, text inputs, integer inputs, or location requests) directly from their Apple Watch, enabling control and information retrieval without needing their iPhone nearby.
+This guide provides detailed instructions for developers who want to create a custom backend API compatible with the PowerWrist watchOS application. PowerWrist allows users to interact with your backend through a series of prompts (choices, text inputs, integer inputs, location requests, confirmations, or multiple choice selections) directly from their Apple Watch, enabling control and information retrieval without needing their iPhone nearby.
 
 The watch app communicates with a single backend endpoint URL configured by the user via the iOS companion app. Your backend's responsibility is to receive requests, process the user's interaction state, and return the next set of prompts or final results in a specific JSON format.
 
@@ -17,14 +17,14 @@ In summary, the API expects:
 
 The core data structures are:
 
-* **`State` (Request Body for POST):** A JSON array of strings representing the sequence of user choices (`id` from the selected item), text inputs, integer inputs (as strings), or location inputs (as "latitude,longitude" strings).
+* **`State` (Request Body for POST):** A JSON array of strings representing the sequence of user choices (`id` from the selected item), text inputs, integer inputs (as strings), location inputs (as "latitude,longitude" strings), an empty string for confirmations, or a string of '&'-separated sorted IDs for multiple choice selections.
 * **`Prompt` (Response Body for GET/POST):** A JSON array of prompt objects.
 * **Object within `Prompt` array:** Represents a single item displayed on the watch. Key fields include:
     * `id` (string, required): Unique identifier for this item/choice.
     * `text` (string, required): Display text (can be encrypted).
     * `icon` (string, optional): SF Symbol name.
     * `encrypted` (boolean, optional): If true, `text`, `nextPromptTitle`, `nextPromptMessage` are encrypted.
-    * `nextPrompt` (string, optional, enum: `choice`, `text`, `integer`, `location`): Defines the next interaction type. If omitted, it's a final result.
+    * `nextPrompt` (string, optional, enum: `choice`, `text`, `integer`, `location`, `confirm`, `multiChoice`): Defines the next interaction type. If omitted, it's a final result.
     * `nextPromptProperties` (array of strings, optional, enum: `encryptText`, `requireNonEmptyText`): Modifies the behavior of the *next* text prompt.
     * `nextPromptTitle` (string, optional): Custom title for the next screen (can be encrypted).
     * `nextPromptMessage` (string, optional): Informational message for the next screen (can be encrypted).
@@ -39,9 +39,9 @@ The interaction between the PowerWrist app and your backend follows these steps:
     * When the app starts or the user navigates home, it sends a `GET /` request to your configured endpoint URL.
     * Your backend should respond with a `200 OK` and a JSON array (`Prompt`) representing the initial choices or information.
 2.  **User Interaction (`POST /`)**:
-    * If the user selects an item that has `nextPrompt` set to `choice`, `text`, `integer`, or `location`:
+    * If the user selects an item that has `nextPrompt` set to `choice`, `text`, `integer`, `location`, `confirm`, or `multiChoice`:
         * The app sends a `POST /` request to your endpoint.
-        * The request body is a JSON array (`State`) containing the sequence of `id`s (for choices) and user-entered data (text, integer string, or location string) leading to this point. The `id` or data from the *most recent* interaction is the last element in the array.
+        * The request body is a JSON array (`State`) containing the sequence of `id`s (for choices) and user-entered data (text, integer string, location string, empty string for confirm, '&'-separated ID string for multiChoice) leading to this point. The data from the *most recent* interaction is the last element in the array.
         * Your backend receives this `State` array. You should parse it to understand the user's current context and desired action.
         * Based on the `State`, your backend performs the necessary logic (e.g., call another API, toggle a device, query a database).
         * Your backend responds with `200 OK` and a *new* JSON `Prompt` array representing the next screen (choices, input prompt details, or final result).
@@ -59,11 +59,20 @@ The interaction between the PowerWrist app and your backend follows these steps:
     * The `nextPromptTitle` and `nextPromptMessage` are used if provided.
     * When the user proceeds, the app sends a `POST /` request. The selected integer, **formatted as a string**, becomes the last element in the `State` array sent to your backend.
 5.  **Location Input**:
-    * If a selected item has `nextPrompt: "location"`, the app attempts to access the user's current location (requesting permission if needed).
+    * If a selected item has `nextPrompt: "location"`, the app attempts to access the user's current location.
     * The `nextPromptTitle` and `nextPromptMessage` are used if provided.
     * If location access is granted and successful, the app shows the coordinate on a mini-map. When the user proceeds, the app sends a `POST /` request. The location, **formatted as a "latitude,longitude" string**, becomes the last element in the `State` array.
-    * If location access is denied or fails, the user cannot proceed down this path.
-6.  **Error Handling**:
+    * If location access fails, the user cannot proceed down this path.
+6.  **Confirmation**:
+    * If a selected item has `nextPrompt: "confirm"`, the app displays a confirmation screen usually showing the text of the item that led to it, possibly with a custom `nextPromptTitle` or `nextPromptMessage`.
+    * When the user taps the "Next" button, the app sends a `POST /` request. An **empty string (`""`)** becomes the last element in the `State` array sent to your backend, representing the confirmation action.
+7.  **Multiple Choice Input**:
+    * If a selected item has `nextPrompt: "multiChoice"`, the app displays a list of choices provided by the backend (as the `Prompt` array in the response to the previous step).
+    * The `nextPromptTitle` and `nextPromptMessage` are used if provided.
+    * The user can select one or more items from the list.
+    * When the user proceeds (by tapping "Next" which appears after selecting at least one item), the app sends a `POST /` request. The IDs of the selected items, **sorted alphabetically and joined by an ampersand ('&')**, become the last element in the `State` array sent to your backend (e.g., "item1&item3&item4").
+    * **Important:** The *first* item in the `Prompt` array originally sent by the backend for the multi-choice screen defines the subsequent navigation path (its `nextPrompt`, `nextPromptTitle`, etc. are used), regardless of whether that specific first item was actually selected by the user. Your backend logic needs to account for receiving the multi-choice response (the '&'-separated string) when the `state` array includes the ID of that *first* multi-choice option.
+8.  **Error Handling**:
     * If your backend cannot process the request or encounters an error, respond with an appropriate HTTP status code (e.g., `400 Bad Request` for invalid state, `500 Internal Server Error` for backend issues). The app will display a generic error message.
 
 ## Authentication
@@ -192,11 +201,12 @@ def get_main_menu():
     """Returns the initial choices shown in the app."""
     return [
         { "id": "lights", "text": "Control Lights", "icon": "lightbulb.fill", "nextPrompt": "choice", "nextPromptTitle": "Select Room" },
-        { "id": "webhook", "text": "Trigger Webhook", "icon": "bolt.fill", "nextPrompt": "choice", "nextPromptTitle": "Select Action" },
+        { "id": "webhook", "text": "Trigger Webhook", "icon": "bolt.fill", "nextPrompt": "confirm", "nextPromptTitle": "Confirm Trigger?", "nextPromptMessage": "Trigger the main webhook?"},
         { "id": "status", "text": "Server Status", "icon": "server.rack" }, # Final action (triggers result view)
         { "id": "secure_note", "text": "Read Secure Note", "icon": "lock.doc", "nextPrompt": "text", "nextPromptProperties": ["encryptText"], "nextPromptTitle": "Enter Password", "nextPromptMessage": "Enter password to decrypt note"},
         { "id": "thermostat", "text": "Set Thermostat", "icon": "thermometer.medium", "nextPrompt": "integer", "nextPromptTitle": "Set Temperature (°C)", "nextPromptMessage": "Adjust temperature (0-100)"},
-        { "id": "check_in", "text": "Check In Location", "icon": "location.fill.viewfinder", "nextPrompt": "location", "nextPromptTitle": "Confirm Location", "nextPromptMessage": "Fetching current location..."}
+        { "id": "check_in", "text": "Check In Location", "icon": "location.fill.viewfinder", "nextPrompt": "location", "nextPromptTitle": "Confirm Location", "nextPromptMessage": "Fetching current location..."},
+        { "id": "select_features", "text": "Select Features", "icon": "checklist", "nextPrompt": "multiChoice", "nextPromptTitle": "Choose Features", "nextPromptMessage": "Select features to enable"}
     ]
 
 def process_state(state):
@@ -205,101 +215,99 @@ def process_state(state):
         return get_main_menu()
 
     first_step = state[0]
-    current_step = state[-1] # The ID or data from the last interaction
+    current_step_data = state[-1] # The ID or data from the last interaction
 
     # Example: Simple navigation based on the first choice
     if len(state) == 1:
         if first_step == "lights":
             return get_light_rooms()
         elif first_step == "webhook":
-            return get_webhook_actions()
+             # User selected "Trigger Webhook", app shows confirmation prompt.
+             # Return dummy prompt for *after* confirmation.
+             return [{"id": "trigger_webhook_confirmed", "text": "Webhook Triggered"}] # Text not displayed
         elif first_step == "status":
             # Final action - actually fetch status here
             status = "All systems nominal." # Replace with real logic
             return [{"id": "status_result", "text": status}]
         elif first_step == "secure_note":
-             # The user selected "Read Secure Note". App shows text input.
-             # Need a dummy prompt response so app knows what to do *after* text input.
-             return [{"id": "submit_password", "text": "Submit Password"}] # This line won't be displayed.
+             # User selected "Read Secure Note". App shows text input.
+             return [{"id": "submit_password", "text": "Submit Password"}] # Not displayed.
         elif first_step == "thermostat":
-            # The user selected "Set Thermostat". App shows integer input.
-            # Need a dummy prompt response for after integer input.
+            # User selected "Set Thermostat". App shows integer input.
             return [{"id": "submit_temperature", "text": "Set Temperature"}] # Not displayed.
         elif first_step == "check_in":
-            # The user selected "Check In". App shows location prompt.
-            # Need a dummy prompt response for after location is fetched.
+            # User selected "Check In". App shows location prompt.
             return [{"id": "submit_location", "text": "Confirm Check-in"}] # Not displayed.
+        elif first_step == "select_features":
+             # User selected "Select Features". Return options for multi-choice.
+             return get_feature_options()
 
 
-    # Example: Handling multi-step flows (e.g., Lights -> Room)
-    elif len(state) == 2 and first_step == "lights":
-        selected_room = current_step
-        return get_lights_in_room(selected_room)
-
-    elif len(state) == 2 and first_step == "webhook":
-        selected_webhook = current_step
-        # Trigger the webhook here
-        print(f"Triggering webhook: {selected_webhook}")
-        result_text = f"Webhook '{selected_webhook}' triggered!"
-        return [{"id": f"wh_result_{selected_webhook}", "text": result_text }]
-
-    # Example: Handling text input (password for secure note)
-    elif len(state) == 2 and first_step == "secure_note":
-        # The user entered text (password), which is state[1] (current_step)
-        # It should be encrypted because we set "encryptText" property
-        encrypted_password = current_step
-        password = decrypt_text(encrypted_password)
-
-        if password == "correct_password": # Replace with real check
-            note_content = "This is the secret note content."
-            encrypted_note = encrypt_text(note_content) # Encrypt the result
-            if encrypted_note:
-                 return [{
-                    "id": "note_content",
-                    "text": encrypted_note, # Send encrypted text
-                    "encrypted": True      # Tell the app to decrypt
-                 }]
+    # Example: Handling multi-step flows
+    elif len(state) == 2:
+        if first_step == "lights":
+            selected_room = current_step_data
+            return get_lights_in_room(selected_room)
+        elif first_step == "webhook":
+            # User confirmed the webhook trigger (current_step_data == "")
+            if current_step_data == "":
+                # Trigger the webhook here
+                print(f"Triggering main webhook...")
+                result_text = f"Main webhook triggered!"
+                return [{"id": "wh_result_main", "text": result_text }]
             else:
-                return [{"id": "enc_error", "text": "Error encrypting note."}]
-        else:
-            return [{"id": "pw_incorrect", "text": "Password incorrect."}]
-
-    # Example: Handling integer input (thermostat)
-    elif len(state) == 2 and first_step == "thermostat":
-        # The user selected an integer, which is state[1] (current_step) as a string
-        temp_str = current_step
-        try:
-            temperature = int(temp_str)
-            # Perform action with the temperature
-            print(f"Setting thermostat to {temperature}°C")
-            result_text = f"Thermostat set to {temperature}°C."
-            return [{"id": "thermo_result", "text": result_text}]
-        except ValueError:
-            print(f"Invalid integer string received: {temp_str}")
-            return [{"id": "thermo_error", "text": "Invalid temperature value received."}]
-
-    # Example: Handling location input (check-in)
-    elif len(state) == 2 and first_step == "check_in":
-        # The user confirmed location, which is state[1] (current_step) as "lat,lon" string
-        location_str = current_step
-        try:
-            latitude, longitude = map(float, location_str.split(','))
-            # Perform action with the location
-            print(f"User checked in at Latitude: {latitude}, Longitude: {longitude}")
-            result_text = f"Checked in at {latitude:.4f}, {longitude:.4f}."
-            # Optional: Encrypt the confirmation message
-            # encrypted_result = encrypt_text(result_text)
-            # return [{"id": "checkin_result", "text": encrypted_result, "encrypted": True}]
-            return [{"id": "checkin_result", "text": result_text}]
-        except (ValueError, IndexError):
-            print(f"Invalid location string received: {location_str}")
-            return [{"id": "checkin_error", "text": "Invalid location format received."}]
+                 return [{"id": "error", "text": "Unexpected state for webhook."}]
+        elif first_step == "secure_note":
+            # User entered text (password), which is current_step_data
+            encrypted_password = current_step_data
+            password = decrypt_text(encrypted_password)
+            if password == "correct_password": # Replace with real check
+                note_content = "This is the secret note content."
+                encrypted_note = encrypt_text(note_content) # Encrypt the result
+                if encrypted_note:
+                     return [{ "id": "note_content", "text": encrypted_note, "encrypted": True }]
+                else:
+                    return [{"id": "enc_error", "text": "Error encrypting note."}]
+            else:
+                return [{"id": "pw_incorrect", "text": "Password incorrect."}]
+        elif first_step == "thermostat":
+            # User selected an integer, which is current_step_data as a string
+            temp_str = current_step_data
+            try:
+                temperature = int(temp_str)
+                print(f"Setting thermostat to {temperature}°C")
+                result_text = f"Thermostat set to {temperature}°C."
+                return [{"id": "thermo_result", "text": result_text}]
+            except ValueError:
+                print(f"Invalid integer string received: {temp_str}")
+                return [{"id": "thermo_error", "text": "Invalid temperature value received."}]
+        elif first_step == "check_in":
+            # User confirmed location, which is current_step_data as "lat,lon" string
+            location_str = current_step_data
+            try:
+                latitude, longitude = map(float, location_str.split(','))
+                print(f"User checked in at Latitude: {latitude}, Longitude: {longitude}")
+                result_text = f"Checked in at {latitude:.4f}, {longitude:.4f}."
+                return [{"id": "checkin_result", "text": result_text}]
+            except (ValueError, IndexError):
+                print(f"Invalid location string received: {location_str}")
+                return [{"id": "checkin_error", "text": "Invalid location format received."}]
+        elif first_step == "select_features":
+            # User made selections in multi-choice. current_step_data is "id1&id2&..."
+            # Note: The app navigated here based on the *first* item originally sent
+            # in get_feature_options(), which was "feature_a". So state[0] is "select_features",
+            # and the *backend* needs to remember that state[1] should contain the multi-choice result.
+            selected_ids_str = current_step_data
+            selected_ids = selected_ids_str.split('&') if selected_ids_str else []
+            print(f"Selected features: {selected_ids}")
+            # Perform action based on selected features
+            result_text = f"Enabled features: {', '.join(selected_ids) if selected_ids else 'None'}"
+            return [{"id": "features_result", "text": result_text}]
 
     # Example: Handling the light toggle (final step in lights flow)
     elif len(state) == 3 and first_step == "lights":
         room = state[1]
-        light_action = current_step # e.g., "living_room_main_toggle"
-        # Perform the light toggle action here
+        light_action = current_step_data # e.g., "living_room_main_toggle"
         print(f"Performing action '{light_action}' in room '{room}'")
         result_text = f"Action '{light_action}' completed."
         return [{"id": "light_result", "text": result_text}]
@@ -340,13 +348,17 @@ def get_lights_in_room(room_id):
      else:
          return [{"id":"room_unknown", "text": "Unknown room."}]
 
-def get_webhook_actions():
-    # Define your webhook actions
+def get_feature_options():
+    """Returns the options for the multi-choice prompt."""
+    # IMPORTANT: The first item's 'nextPrompt' determines what happens AFTER selection.
+    # It should usually be nil or lead to a result view.
+    # Here, we'll just display the result immediately.
     return [
-        {"id": "ifttt_movie_mode", "text": "Movie Mode (IFTTT)", "icon": "film.fill"},
-        {"id": "start_backup", "text": "Start Server Backup", "icon": "externaldrive.badge.icloud"},
+        {"id": "feature_a", "text": "Feature A", "icon": "a.circle"}, # This item defines the next step
+        {"id": "feature_b", "text": "Feature B", "icon": "b.circle"},
+        {"id": "feature_c", "text": "Feature C (Encrypted)", "icon": "c.circle", "encrypted": True, "text": encrypt_text("Feature C")},
+        {"id": "feature_d", "text": "Feature D", "icon": "d.circle"}
     ]
-
 
 if __name__ == '__main__':
     # Use 0.0.0.0 to make it accessible on your network
