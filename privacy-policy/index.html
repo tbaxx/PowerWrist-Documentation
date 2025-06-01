@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerWrist Privacy Policy</title>
+    <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: auto; color: #333; }
+        h1 { color: #111; border-bottom: 2px solid #007aff; padding-bottom: 10px; }
+        h2 { color: #222; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        h3 { color: #444; margin-top: 20px; }
+        p, li { color: #555; }
+        ul { margin-left: 20px; list-style-type: disc; }
+        strong { color: #000; }
+        code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 4px; font-family: "SF Mono", "Consolas", "Menlo", monospace; }
+        a { color: #007aff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .container { background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .last-updated { font-size: 0.9em; color: #666; margin-bottom: 20px; }
+        .warning { background-color: #fff3cd; color: #856404; padding: 10px 15px; border: 1px solid #ffeeba; border-radius: 4px; margin-top: 15px; margin-bottom: 15px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PowerWrist Privacy Policy</h1>
+        <p class="last-updated">Last Updated: June 1, 2025</p>
+
+        <h2>Introduction</h2>
+        <p>Welcome to PowerWrist. This Privacy Policy describes how PowerWrist (referred to as "the App," "we," "us," or "our") handles your information. PowerWrist consists of a watchOS application and an iOS companion application designed to interact with a backend API that <strong>you configure</strong>. By default, and for demonstration purposes, the App uses a pre-configured demo endpoint hosted on Amazon Web Services (AWS) until you specify your own. This policy applies to both the iOS companion app and the watchOS app (including its complication).</p>
+        <p>By using the App, you agree to the collection, use, and sharing of your information as described in this Privacy Policy. <strong>We, the developers of PowerWrist, do not collect, process, or store your personal data for our own purposes.</strong> The App primarily facilitates communication between your Apple Watch and a backend service of your choice (or our demo service), acting as a conduit for data.</p>
+        <p>This policy is intended to be compliant with various international data protection regulations, including the General Data Protection Regulation (GDPR) for users in the European Economic Area (EEA).</p>
+
+        <h2>Information We Collect and How We Use It</h2>
+        <p>The App handles different types of information, primarily based on your configuration and interactions. We do not sell any of your information.</p>
+
+        <h3>1. User-Provided Configuration Data</h3>
+        <p>This information is entered by you in the PowerWrist iOS companion app to set up communication with your desired backend service.</p>
+        <ul>
+            <li><strong>Backend Endpoint URL:</strong> The URL for the API your PowerWrist watch app will interact with.
+                <div class="warning">
+                    <strong>Demo Endpoint:</strong> If you leave this blank, the App will use a pre-configured demo endpoint hosted on Amazon Web Services (AWS) for demonstration purposes.
+                    <ul>
+                        <li>The demo endpoint implementation <strong>does not actively store any information</strong> sent to it.</li>
+                        <li>We are putting great effort into ensuring that all relevant logging in the underlying AWS services (like API Gateway, Lambda) for this demo endpoint is turned off or minimized to the greatest extent possible to avoid incidental capture of interaction data.</li>
+                        <li><strong>We strongly encourage you to avoid entering any personal or sensitive information while using the demo endpoint.</strong></li>
+                        <li>Please switch to your own backend service as soon as possible for any non-demonstration use.</li>
+                    </ul>
+                </div>
+            </li>
+            <li><strong>Encryption Key:</strong> An optional 16-byte AES key (Base64 encoded) you provide for encrypting communication with your backend and decrypting responses. This is entered into a secure field on iOS.</li>
+            <li><strong>Authentication Details:</strong> Optional HTTP header name (e.g., <code>x-api-key</code>) and corresponding value for authenticating with your backend. The header value is entered into a secure field on iOS.</li>
+            <li><strong>Complication Icon Name:</strong> An optional SF Symbol name (e.g., <code>bolt.fill</code>) you choose for the watch face complication.</li>
+        </ul>
+        <p><strong>How Configuration Data is Used and Stored:</strong></p>
+        <ul>
+            <li>This configuration is stored locally on your device using CoreData.</li>
+            <li>It is synced via Apple's CloudKit to your private iCloud account for backup and to be available across your devices signed in with the same Apple ID. We do not have access to this data.</li>
+            <li>It is transmitted from the iOS app to the watchOS app using Apple's WatchConnectivity framework.</li>
+            <li>The Complication Icon Name is also saved to a shared UserDefaults App Group on the watch for the complication to access.</li>
+        </ul>
+
+        <h3>2. User Interaction Data (WatchOS App)</h3>
+        <p>This is data generated as you interact with the prompts presented by your configured backend (or the demo backend) on the PowerWrist watchOS app.</p>
+        <ul>
+            <li><strong>Responses to Prompts:</strong> Your selections from choices, text you input, integers you select, multiple choices you pick, or confirmations you provide.</li>
+            <li><strong>Location Data:</strong> If a prompt from your configured backend requires location, and <strong>only if you grant explicit consent through the OS-level permission prompt</strong>, the App will collect your current GPS coordinates (latitude and longitude) using CoreLocation. This data is collected solely for the purpose of fulfilling the request from your configured backend for that specific prompt.</li>
+            <li><strong>State Information:</strong> A sequence of prompt IDs and your inputs that the App sends to your configured backend to determine subsequent prompts or results. If text input is configured for encryption by your backend and you have provided an encryption key, it will be encrypted before being included in the state.</li>
+        </ul>
+        <p><strong>How User Interaction Data is Used:</strong></p>
+        <ul>
+            <li>This data is sent directly to the <strong>backend API endpoint you have configured</strong> (or the AWS-hosted demo endpoint if none is configured by you) to fetch subsequent prompts or display final results. Please refer to the warning above regarding the demo endpoint and data privacy.</li>
+        </ul>
+
+        <h3>3. Data from Your Configured Backend (WatchOS App)</h3>
+        <p>The App receives information from your configured backend API (or the demo backend):</p>
+        <ul>
+            <li><strong>Prompts and Content:</strong> This includes text, icons, type of next prompt, and other instructional data. If flagged as encrypted by your backend and an encryption key is configured in the App, this data (specifically `text`, `nextPromptTitle`, and `nextPromptMessage` fields) is decrypted using the provided key before display.</li>
+        </ul>
+        <p><strong>How Backend Data is Used:</strong></p>
+        <ul>
+            <li>To display prompts and information to you on your Apple Watch according to the logic defined by your configured backend.</li>
+        </ul>
+
+        <h2>Lawful Basis for Processing (for EEA Users)</h2>
+        <p>If you are in the European Economic Area (EEA), our processing of your information is based on the following:
+        <ul>
+            <li><strong>Your Consent:</strong> When you provide configuration data (like backend URL, encryption key, authentication details, complication icon) through the iOS app, you consent to its storage on your device, its synchronization via CloudKit, and its transfer to your Apple Watch for the App to function as you've configured. When a prompt from your configured backend requires location data, we will only process this data if you grant explicit consent through the iOS permission request.</li>
+            <li><strong>Performance of a Contract (User Request):</strong> When you interact with the watchOS app, the transmission of your inputs (choices, text, location data upon consent, etc.) to your configured backend (or the demo backend) is done at your request to enable the dynamic functionality of the App based on your backend's design.</li>
+            <li><strong>Our Legitimate Interests:</strong> We do not process your personal data for our own legitimate interests beyond providing the basic functionality of the demo endpoint, which is designed to be stateless. The App is designed to process data locally or send it to services *you* control or choose.</li>
+        </ul>
+
+        <h2>Information Sharing and Disclosure</h2>
+        <p>We do not share your information with any third parties for their own purposes. Sharing occurs only as necessary to provide the App's functionality as directed by you, or as required by law.</p>
+        <ul>
+            <li><strong>Your Configured Backend API / Demo Endpoint:</strong> The core functionality of the App involves sending your interaction data (including prompt responses and, if authorized, location data) to the backend API endpoint that <em>you specify</em> in the iOS app's configuration.
+                <div class="warning">
+                    <strong>Demo Endpoint Usage:</strong> If no backend is configured by you, interactions are sent to our AWS-hosted demo endpoint. As stated, this demo endpoint is designed not to actively store your information, and we strive to minimize any logging. However, <strong>you are advised to avoid sending personal or sensitive data to the demo endpoint and should configure your own trusted backend for any regular use.</strong>
+                </div>
+                For any backend you configure, <strong>you are the controller of this data once it leaves the App to your backend, and you are responsible for ensuring that backend service's privacy practices meet your requirements and applicable laws.</strong> We act as a data processor only on your behalf to transmit this data to the backend you have configured.
+            </li>
+            <li><strong>Apple Services:</strong>
+                <ul>
+                    <li><strong>CloudKit:</strong> Your app configuration data is stored in your private iCloud account via CloudKit. This data is subject to Apple's privacy policy. We do not have access to your CloudKit data. Apple may transfer and store this data in servers worldwide, in accordance with their policies.</li>
+                    <li><strong>WatchConnectivity:</strong> Configuration data is transferred locally between your iOS device and Apple Watch.</li>
+                </ul>
+            </li>
+            <li><strong>Legal Requirements:</strong> We may disclose your information if required by law, subpoena, or other legal process.</li>
+        </ul>
+        <p><strong>PowerWrist developers do not have access to, collect, or store any of the data you process through the app (configuration, interactions, or data from your backend), except for the highly transient, non-stored, and minimally-logged processing by the public demo endpoint if you choose to use it.</strong> We do not sell your data.</p>
+
+        <h2>International Data Transfers</h2>
+        <p>The App itself does not transfer your data internationally to its own servers, as it does not operate any beyond the AWS-hosted demo endpoint.</p>
+        <p>However, by using the App, your data may be transferred internationally as follows:</p>
+        <ul>
+            <li><strong>To Your Configured Backend:</strong> If the backend API you configure is hosted in a different country, your interaction data will be transferred to that country. You are responsible for this transfer.</li>
+            <li><strong>To the Demo Endpoint:</strong> The demo endpoint is hosted on AWS, which has servers globally. Interaction data with the demo endpoint will be processed in the AWS region where the demo service is deployed.</li>
+            <li><strong>Via Apple's CloudKit:</strong> If you use iCloud for syncing configuration data, Apple may store this data on servers located outside your country of residence. This is governed by Apple's terms and privacy policy.</li>
+        </ul>
+        <p>For users in the EEA, if you configure a backend outside the EEA, you are responsible for ensuring that such transfers comply with GDPR requirements (e.g., through an adequacy decision, Standard Contractual Clauses, or other appropriate safeguards if you are the data controller for that backend). Use of the demo endpoint involves AWS infrastructure, which may be outside the EEA; AWS offers mechanisms for GDPR compliance for its services.</p>
+
+        <h2>Data Security</h2>
+        <p>We implement reasonable security measures within the App to help protect your information while it is on your device or in transit to your configured backend.</p>
+        <ul>
+            <li><strong>Optional End-to-End Encryption:</strong> The App supports AES-CBC encryption for data exchanged with your configured backend, if you provide an encryption key and your backend supports it. (Note: The public demo endpoint does not use this encryption).</li>
+            <li><strong>Secure Input on iOS:</strong> The iOS companion app uses `SecureField` for sensitive configuration inputs.</li>
+            <li><strong>Local Storage:</strong> Configuration data is stored locally using CoreData.</li>
+            <li><strong>Demo Endpoint:</strong> While we strive to make the demo endpoint secure and stateless, any interaction over the internet carries inherent risks. We encourage using your own, trusted backend for sensitive operations.</li>
+        </ul>
+        <p>No electronic transmission or storage can be entirely secure. We cannot guarantee the absolute security of your information, especially data transmitted to/from third-party backend services you configure, or even to the demo endpoint despite our efforts.</p>
+
+        <h2>Data Retention</h2>
+        <p>Your configuration data is stored on your device and in your private CloudKit storage as long as you use the App or until you choose to delete the App or its data. Data sent to your configured backend is subject to that backend's data retention policies. <strong>The demo endpoint is designed not to retain data.</strong></p>
+
+        <h2>Your Data Protection Rights (especially for EEA Users)</h2>
+        <p>Depending on your location and applicable laws, you may have certain rights regarding your personal information. Under GDPR, these include:</p>
+        <ul>
+            <li><strong>The right to access:</strong> You can access your configuration data within the iOS app. Data sent to your backend is under your control via that backend. Interaction data with the demo endpoint is not stored, so access is not applicable in that context.</li>
+            <li><strong>The right to rectification:</strong> You can modify your configuration data within the iOS app.</li>
+            <li><strong>The right to erasure (right to be forgotten):</strong> You can delete configuration data by clearing settings in the app or deleting the app. This will remove local copies and signal CloudKit to remove synced data according to Apple's policies. Data on your configured backend needs to be managed with that backend provider. Data sent to the demo endpoint is not stored, so erasure is not applicable.</li>
+            <li><strong>The right to restrict processing:</strong> You can restrict processing by choosing not to use certain features (e.g., location) or by not using the app, or by not using the demo endpoint.</li>
+            <li><strong>The right to object to processing:</strong> You can object to processing by ceasing to use the app or specific features.</li>
+            <li><strong>The right to data portability:</strong> Your configuration data is accessible to you in the app and through your CloudKit account. You can manually re-enter this data if you wish to "port" it.</li>
+            <li><strong>The right to withdraw consent:</strong> Where processing is based on consent (e.g., location access, providing configuration), you can withdraw consent at any time (e.g., by disabling location services in device settings, clearing configuration).</li>
+        </ul>
+        <p>To exercise these rights regarding data within the App or your CloudKit storage, you can typically manage this through the App's settings or your device/iCloud settings. For data sent to your configured backend, you must contact the administrator of that backend. Regarding the demo endpoint, as no data is stored, these rights primarily apply to your choice not to use it or to be informed about its operation.</p>
+
+        <h2>Children's Privacy</h2>
+        <p>The App is not directed to individuals under the age of 16 (or the relevant age of consent in your jurisdiction for data processing purposes). We do not knowingly collect personal information from children. If we become aware that a child has provided us with personal information directly (which is unlikely given the app's architecture, including the stateless nature of the demo endpoint), we will take steps to delete such information. If you believe that a child has provided personal information to a backend service (including the demo endpoint, though it doesn't store it) through our App, please contact the administrator of that specific backend service (or us, regarding the demo endpoint, so we can reiterate its non-storage policy).</p>
+
+        <h2>Changes to This Privacy Policy</h2>
+        <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy within the App or on its designated information page (e.g., its App Store page or project repository). You are advised to review this Privacy Policy periodically for any changes. Changes to this Privacy Policy are effective when they are posted.</p>
+
+        <h2>Contact Us</h2>
+        <p>If you have any questions about this Privacy Policy or the App's privacy practices (noting that we do not control your configured backend's practices, and the demo endpoint is designed to be stateless and non-logging), please contact us by raising an issue on its project page on GitHub <a href="https://github.com/tbaxx/PowerWrist-Documentation">https://github.com/tbaxx/PowerWrist-Documentation</a>.</p>
+    </div>
+</body>
+</html>
