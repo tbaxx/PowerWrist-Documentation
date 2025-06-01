@@ -101,7 +101,7 @@ For sensitive information, PowerWrist supports end-to-end encryption using AES-C
 
 ## Backend Example (Python/Flask)
 
-Here is an example using Python and the Flask web framework to illustrate backend logic.
+Here is an example using Python and the Flask web framework to illustrate backend logic. Please install [Flask](https://pypi.org/project/Flask/) and [pycryptodome](https://pypi.org/project/pycryptodome/) to use it. Also, make sure to set appropriate values for the configuration settings at the top of the script.
 
 ```python
 import base64
