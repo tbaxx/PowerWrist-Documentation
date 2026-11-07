@@ -6,7 +6,7 @@ info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: 1.0.1
+  version: 1.1.0
 paths:
   /:
     get:
@@ -96,6 +96,20 @@ components:
           nextPromptMessage:
             type: string
             description: Optional informational message displayed on the next screen (can be encrypted).
+          nextPromptInitialValue:
+            type: integer
+            nullable: true
+            default: 0
+            example: 21
+            description: >
+              Optional initial value for the next integer prompt. Set this on the
+              same item as nextPrompt 'integer'; ignored for other prompt types.
+              Omitted or null values start at zero. The stepper accepts 0-100;
+              initial values outside that range are clamped to the nearest limit.
+              Applied once when the prompt opens, so reloading does not reset user
+              edits. Remains a JSON integer (or null) even when encrypted is true.
+              The selected value is still submitted as a decimal string in State.
+              Older app versions ignore this field and continue starting at zero.
         required:
           - id
           - text

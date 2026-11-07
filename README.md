@@ -28,6 +28,7 @@ The core data structures are:
     * `nextPromptProperties` (array of strings, optional, enum: `encryptText`, `requireNonEmptyText`): Modifies the behavior of the *next* text prompt.
     * `nextPromptTitle` (string, optional): Custom title for the next screen (can be encrypted).
     * `nextPromptMessage` (string, optional): Informational message for the next screen (can be encrypted).
+    * `nextPromptInitialValue` (integer or `null`, optional): Initial value for the next integer prompt. Omitted or `null` starts at zero. Only used when `nextPrompt` is `"integer"`.
 
 **Refer to the `openapi.yaml` file for the formal specification.**
 
@@ -57,6 +58,8 @@ The interaction between the PowerWrist app and your backend follows these steps:
 4.  **Integer Input**:
     * If a selected item has `nextPrompt: "integer"`, the app displays an integer input screen with a stepper.
     * The `nextPromptTitle` and `nextPromptMessage` are used if provided.
+    * Set `nextPromptInitialValue` on that same item to start at the current backend value, such as a thermostat's temperature. Omitted or `null` starts at zero.
+    * The stepper accepts 0–100. Initial values outside this range are clamped to the nearest limit. The initial value is applied once when the prompt opens; reloading it does not reset the user's edits.
     * When the user proceeds, the app sends a `POST /` request. The selected integer, **formatted as a string**, becomes the last element in the `State` array sent to your backend.
 5.  **Location Input**:
     * If a selected item has `nextPrompt: "location"`, the app attempts to access the user's current location.
@@ -74,6 +77,36 @@ The interaction between the PowerWrist app and your backend follows these steps:
     * **Important:** The *first* item in the `Prompt` array originally sent by the backend for the multi-choice screen defines the subsequent navigation path (its `nextPrompt`, `nextPromptTitle`, etc. are used), regardless of whether that specific first item was actually selected by the user. Your backend logic needs to account for receiving the multi-choice response (the '&'-separated string) when the `state` array includes the ID of that *first* multi-choice option.
 8.  **Error Handling**:
     * If your backend cannot process the request or encounters an error, respond with an appropriate HTTP status code (e.g., `400 Bad Request` for invalid state, `500 Internal Server Error` for backend issues). The app will display a generic error message.
+
+## Integer Prompt Initial Value
+
+To show the current thermostat temperature when the user opens the integer prompt,
+include `nextPromptInitialValue` alongside `nextPrompt: "integer"` in the menu response:
+
+```json
+[
+  {
+    "id": "thermostat",
+    "text": "Set Thermostat",
+    "nextPrompt": "integer",
+    "nextPromptTitle": "Set Temperature (°C)",
+    "nextPromptMessage": "Adjust temperature (0-100)",
+    "nextPromptInitialValue": 21
+  }
+]
+```
+
+The app opens the stepper at 21. The `POST /` request with state `["thermostat"]`
+still retrieves the continuation item (for example, `submit_temperature`); put
+the initial value on the menu item above, rather than that continuation item.
+If the user proceeds at 21, the submitted state is `["thermostat", "21"]`.
+If they adjust it to 22, the submitted state is `["thermostat", "22"]`.
+
+Send a JSON integer, such as `21`, rather than a string (`"21"`) or a fractional
+number (`21.5`). The field is optional: existing backends can omit it and keep
+the zero default. Older app versions ignore the additional field and continue
+starting at zero. No changes to endpoints or the string-based `State` array are
+required.
 
 ## Authentication
 
@@ -93,6 +126,7 @@ For sensitive information, PowerWrist supports end-to-end encryption using AES-C
     * You **must** encrypt the `text` field, and optionally the `nextPromptTitle` and `nextPromptMessage` fields, using the shared AES key and AES-CBC mode.
     * **Encryption Format**: Generate a random 16-byte IV (Initialization Vector) for each encryption operation. The final encrypted string sent in the JSON must be formatted as: `Base64(IV) + ":" + Base64(Ciphertext)`.
     * The app will automatically decrypt these fields before displaying them if `encrypted: true` is set and a valid key is configured. If no key is configured or decryption fails, the app will show an error.
+    * `nextPromptInitialValue` remains a JSON integer (or `null`), even when `encrypted: true`; the app does not encrypt or decrypt this field.
 * **App -> Backend Encryption**:
     * If you want the user's text input to be encrypted *before* being sent to your backend, define a prompt object with `nextPrompt: "text"` and include `"encryptText"` in the `nextPromptProperties` array.
     * When the user submits text on the subsequent screen, the app will encrypt it using the configured key (same IV:Ciphertext format) and send the encrypted string as the last element in the `State` array during the `POST` request.
@@ -199,12 +233,13 @@ def handle_request():
 
 def get_main_menu():
     """Returns the initial choices shown in the app."""
+    current_temperature = 21 # Replace with the current value from your thermostat API.
     return [
         { "id": "lights", "text": "Control Lights", "icon": "lightbulb.fill", "nextPrompt": "choice", "nextPromptTitle": "Select Room" },
         { "id": "webhook", "text": "Trigger Webhook", "icon": "bolt.fill", "nextPrompt": "confirm", "nextPromptTitle": "Confirm Trigger?", "nextPromptMessage": "Trigger the main webhook?"},
         { "id": "status", "text": "Server Status", "icon": "server.rack" }, # Final action (triggers result view)
         { "id": "secure_note", "text": "Read Secure Note", "icon": "lock.doc", "nextPrompt": "text", "nextPromptProperties": ["encryptText"], "nextPromptTitle": "Enter Password", "nextPromptMessage": "Enter password to decrypt note"},
-        { "id": "thermostat", "text": "Set Thermostat", "icon": "thermometer.medium", "nextPrompt": "integer", "nextPromptTitle": "Set Temperature (°C)", "nextPromptMessage": "Adjust temperature (0-100)"},
+        { "id": "thermostat", "text": "Set Thermostat", "icon": "thermometer.medium", "nextPrompt": "integer", "nextPromptTitle": "Set Temperature (°C)", "nextPromptMessage": "Adjust temperature (0-100)", "nextPromptInitialValue": current_temperature},
         { "id": "check_in", "text": "Check In Location", "icon": "location.fill.viewfinder", "nextPrompt": "location", "nextPromptTitle": "Confirm Location", "nextPromptMessage": "Fetching current location..."},
         { "id": "select_features", "text": "Select Features", "icon": "checklist", "nextPrompt": "multiChoice", "nextPromptTitle": "Choose Features", "nextPromptMessage": "Select features to enable"}
     ]
@@ -234,6 +269,7 @@ def process_state(state):
              return [{"id": "submit_password", "text": "Submit Password"}] # Not displayed.
         elif first_step == "thermostat":
             # User selected "Set Thermostat". App shows integer input.
+            # The initial value was already supplied by get_main_menu().
             return [{"id": "submit_temperature", "text": "Set Temperature"}] # Not displayed.
         elif first_step == "check_in":
             # User selected "Check In". App shows location prompt.
